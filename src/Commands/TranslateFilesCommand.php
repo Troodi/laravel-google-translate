@@ -136,18 +136,9 @@ class TranslateFilesCommand extends Command
             $i++;
         }
 
-        // Check if the API request limit reached.
-        if( self::$request_count >= self::$request_per_sec ){
-            sleep(self::$sleep_for_sec);
-            self::$request_count = 0; //Reset the $request_count
-        }
         self::$request_count++; //Increase the request_count by 1
 
-        if(config('laravel_google_translate.google_translate_api_key', false)){
-            $translated = self::translate_via_api_key($base_locale, $locale, $text);
-        }else{
-            $translated = self::translate_via_stichoza($base_locale, $locale, $text);
-        }
+        $translated = self::translate_via_api_key($base_locale, $locale, $text);
         foreach ($parameter_map as $key=>$attribute){
             $combinations = [
                 $key,
@@ -187,11 +178,17 @@ class TranslateFilesCommand extends Command
      * @throws \Exception
      */
     private static function translate_via_api_key($base_locale, $locale, $text){
-        $apiKey = config('laravel_google_translate.google_translate_api_key', false);
-        $url = 'https://www.googleapis.com/language/translate/v2?key=' . $apiKey . '&q=' . rawurlencode($text) . '&source=' . substr($base_locale, 0, strpos($base_locale."_", "_")) . '&target=' . substr($locale, 0, strpos($locale."_", "_"));
+        $url = 'https://www.bing.com/ttranslatev3?isVertical=1' . $apiKey . '&q=' . rawurlencode($text) . '&source=' . substr($base_locale, 0, strpos($base_locale."_", "_")) . '&target=' . substr($locale, 0, strpos($locale."_", "_"));
         $handle = curl_init();
+        $data = array(
+          'fromLang' => substr($base_locale, 0, strpos($base_locale."_", "_")),
+          'text' => rawurlencode($text),
+          'to' => substr($locale, 0, strpos($locale."_", "_"))
+        );
         curl_setopt($handle, CURLOPT_URL, $url);
         curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($handle, CURLOPT_POST, true);
+        curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
         $response = curl_exec($handle);
         if ($response === false) {
             throw new \Exception(curl_error($handle), curl_errno($handle));
@@ -208,7 +205,7 @@ class TranslateFilesCommand extends Command
             exit;
         }
 
-        return $responseDecoded['data']['translations'][0]['translatedText'];
+        return $responseDecoded['text'];
     }
 
     /**
